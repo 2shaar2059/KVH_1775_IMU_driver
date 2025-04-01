@@ -1,14 +1,8 @@
-extern "C" {
-#include "cfe.h"
-#include "cfe_evs.h"
-}
+#include "serial_driver.h"
 
 #include <unistd.h>
 
 #include <cstring>
-
-#include "imu_driver_events.h"
-#include "serial_driver.h"
 
 SerialDriver::SerialDriver(const std::string& serial_port_name)
     : serial_port_name_(serial_port_name) {
@@ -22,7 +16,7 @@ SerialDriver::~SerialDriver() {
     ::close(file_handle_);
 }
 
-bool SerialDriver::isPortOpened() {
+bool SerialDriver::isPortOpened() const {
     return openedPort_;
 }
 

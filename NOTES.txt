@@ -1,0 +1,6 @@
+https://commandmasters.com/commands/ionice-linux/
+
+sudo ionice -c 1 -n 2 ./main
+
+
+this acheives 1000Hz!!

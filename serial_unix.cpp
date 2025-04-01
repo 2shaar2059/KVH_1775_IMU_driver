@@ -1,21 +1,19 @@
-
-extern "C" {
-#include "cfe.h"
-#include "cfe_evs.h"
-}
+#include "serial_unix.h"
 
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 
 #include <cstring>   // for strerror_l()
+#include <iostream>
 
-#include "common_utils.h"
-#include "imu_driver_events.h"
-#include "moonranger_output_strings.h"
+#include "constants.h"
 #include "serial_driver.h"
-#include "serial_unix.h"
-#include "stim300_constants.h"
+#include "utils.h"
+
+#define errnoToString(savedErrno) strerror_l(savedErrno, uselocale((locale_t)0))
+
+using namespace std;
 
 // Everything is learned from
 // https://en.wikibooks.org/wiki/Serial_Programming/termios
@@ -35,10 +33,11 @@ void SerialUnix::open() {
                             O_RDONLY | O_NOCTTY | O_NDELAY | O_CLOEXEC);
     int savedErrno = errno;
     if (file_handle_ == -1) {
-        CFE_EVS_SendEvent(IMU_DRIVER_SYSCALL_OPEN_ERROR,
-                          CFE_EVS_EventType_CRITICAL,
-                          MOON_ERROR_INFO("Failed to open IMU at %s: %s"),
-                          serial_port_name_.c_str(), errnoToString(savedErrno));
+        cout << "IMU_DRIVER: Failed to close fd " << file_handle_ << ": "
+             << errnoToString(savedErrno) << "\n";
+
+        cout << "Failed to open IMU at " << serial_port_name_ << ": "
+             << errnoToString(savedErrno) << "\n";
         openedPort_ = false;
         return;
     }
@@ -47,10 +46,8 @@ void SerialUnix::open() {
     int retval = isatty(file_handle_);
     savedErrno = errno;
     if (retval != 1) {
-        CFE_EVS_SendEvent(IMU_DRIVER_SYSCALL_ISTTY_ERROR,
-                          CFE_EVS_EventType_CRITICAL,
-                          MOON_ERROR_INFO("Serial port is not TTY device: %s"),
-                          errnoToString(savedErrno));
+        cout << "Serial port is not TTY device: " << errnoToString(savedErrno)
+             << "\n";
         return;
     }
 
@@ -58,10 +55,8 @@ void SerialUnix::open() {
     retval     = tcgetattr(file_handle_, &config_);
     savedErrno = errno;
     if (retval != 0) {
-        CFE_EVS_SendEvent(
-            IMU_DRIVER_SYSCALL_TCGETATTR_ERROR, CFE_EVS_EventType_CRITICAL,
-            MOON_ERROR_INFO("Couldn't retrieve current serial config: %s"),
-            errnoToString(savedErrno));
+        cout << "Couldn't retrieve current serial config: "
+             << errnoToString(savedErrno) << "\n";
         return;
     }
 
@@ -102,28 +97,24 @@ void SerialUnix::open() {
     // no output processing, force 8 bit input
     config_.c_cflag &= ~(CSIZE | PARENB);
     config_.c_cflag |= CS8;
-    config_.c_cflag |= CSTOPB;   // 2 stop bits
+    // config_.c_cflag |= CSTOPB;   // 2 stop bits
 
     config_.c_cc[VMIN]  = 1;   // One input byte is enough to return from read()
     config_.c_cc[VTIME] = 0;   // Inter-character timer off
 
     // Communication speed
-    retval = cfsetispeed(&config_, stim300::BAUD_ID);
+    retval     = cfsetispeed(&config_, BAUD_ID);
     savedErrno = errno;
     if (retval != 0) {
-        CFE_EVS_SendEvent(
-            IMU_DRIVER_SYSCALL_CFSETIOSPEED_ERROR, CFE_EVS_EventType_CRITICAL,
-            MOON_ERROR_INFO("Input baud rate couldn't be set: %s"),
-            errnoToString(savedErrno));
+        cout << "Input baud rate couldn't be set: " << errnoToString(savedErrno)
+             << "\n";
         return;
     }
-    retval = cfsetospeed(&config_, stim300::BAUD_ID);
+    retval     = cfsetospeed(&config_, BAUD_ID);
     savedErrno = errno;
     if (retval != 0) {
-        CFE_EVS_SendEvent(
-            IMU_DRIVER_SYSCALL_CFSETIOSPEED_ERROR, CFE_EVS_EventType_CRITICAL,
-            MOON_ERROR_INFO("Output baud rate couldn't be set: %s"),
-            errnoToString(savedErrno));
+        cout << "Output baud rate couldn't be set: "
+             << errnoToString(savedErrno) << "\n";
         return;
     }
 
@@ -131,17 +122,13 @@ void SerialUnix::open() {
     retval     = tcsetattr(file_handle_, TCSAFLUSH, &config_);
     savedErrno = errno;
     if (retval != 0) {
-        CFE_EVS_SendEvent(
-            IMU_DRIVER_SYSCALL_TCSETATTR_ERROR, CFE_EVS_EventType_CRITICAL,
-            MOON_ERROR_INFO("Couldn't apply any serial settings: %s"),
-            errnoToString(savedErrno));
-
+        cout << "Couldn't apply any serial settings: "
+             << errnoToString(savedErrno) << "\n";
         return;
     }
 
-    CFE_EVS_SendEvent(IMU_DRIVER_SYSCALL_OPEN_SUCCESS,
-                      CFE_EVS_EventType_INFORMATION,
-                      MOON_SUCCESS_INFO("IMU connected successfully!"));
+    cout << "IMU connected successfully!\n";
+
     openedPort_ = true;
 
     /*TODO: do we need to set exclusive access to the serial device?
@@ -158,18 +145,19 @@ void SerialUnix::reconnect() {
         int closeResult = ::close(file_handle_);
         int savedErrno  = errno;
         if (-1 == closeResult) {
-            CFE_EVS_SendEvent(IMU_DRIVER_SYSCALL_CLOSE_ERROR,
-                              CFE_EVS_EventType_CRITICAL,
-                              "IMU_DRIVER: Failed to close fd %d: %s",
-                              file_handle_, errnoToString(savedErrno));
+            cout << "IMU_DRIVER: Failed to close fd " << file_handle_ << ": "
+                 << errnoToString(savedErrno) << "\n";
         }
     }
     open();
 }
 
+static double last_hearbeat                = -1e99;   // [s]
+static double hearbeat_period              = 1.0;     // [s]
+static int bytes_read_since_last_heartbeat = 0;
+
 ssize_t SerialUnix::readBytes() {
-    OS_time_t currTime;
-    CFE_PSP_GetTime(&currTime);
+    double currTime = get_time();
 
     // poll to check if file descriptor is ready for reading
     struct pollfd pfd {};
@@ -180,13 +168,9 @@ ssize_t SerialUnix::readBytes() {
     int pollResult = poll(&pfd, 1, ms_timeout);
     int savedErrno = errno;
     if (pollResult < 1) {   // error
-        if (firstPollError or
-            elapsedTime(timeOfLastPollErrMsgSent, currTime) > 5) {
-            CFE_EVS_SendEvent(
-                IMU_DRIVER_SYSCALL_POLL_ERROR, CFE_EVS_EventType_CRITICAL,
-                MOON_ERROR_INFO("IMU Driver Serial Port poll() error: "
-                                "%s. Attempting reconnect."),
-                errnoToString(savedErrno));
+        if (firstPollError or (currTime - timeOfLastPollErrMsgSent) > 5) {
+            cout << "IMU Driver Serial Port poll() error: "
+                 << errnoToString(savedErrno) << ". Attempting reconnect.\n";
             reconnect();
             timeOfLastPollErrMsgSent = currTime;
         }
@@ -194,24 +178,14 @@ ssize_t SerialUnix::readBytes() {
         return pollResult;
     }
 
-    // poll() will return as soon as even 1 byte arrives from the IMU.
-    // But, since it will take some time for the rest of the
-    // datagram to arrive, we should wait a little bit before reading
-    // the serial port
-    usleep(stim300::DATAGRAM_TRANSIT_TIME_us);
-
     // actually performing the read
-    uint8_t tmp[stim300::DATAGRAM_SIZE];
-    ssize_t readResult = read(file_handle_, tmp, stim300::DATAGRAM_SIZE);
+    uint8_t tmp[DATAGRAM_SIZE];
+    ssize_t readResult = read(file_handle_, tmp, DATAGRAM_SIZE);
     savedErrno         = errno;
     if (readResult < 1) {   // error
-        if (firstReadError or
-            elapsedTime(timeOfLastReadErrMsgSent, currTime) > 5) {
-            CFE_EVS_SendEvent(
-                IMU_DRIVER_SYSCALL_READ_ERROR, CFE_EVS_EventType_CRITICAL,
-                MOON_ERROR_INFO("IMU Driver Serial Port read() error: "
-                                "%s. Attempting reconnect."),
-                errnoToString(savedErrno));
+        if (firstReadError or (currTime - timeOfLastReadErrMsgSent) > 5) {
+            cout << "IMU Driver Serial Port read() error: "
+                 << errnoToString(savedErrno) << ". Attempting reconnect.\n";
             reconnect();
             timeOfLastReadErrMsgSent = currTime;
         }
@@ -220,8 +194,19 @@ ssize_t SerialUnix::readBytes() {
     }
 
     // copy from temporary read buffer into circular buffer
-    for (int i = 0; i < stim300::DATAGRAM_SIZE and i < readResult; i++) {
+    for (int i = 0; i < DATAGRAM_SIZE and i < readResult; i++) {
         buffer_.add(tmp[i]);
+    }
+
+    bytes_read_since_last_heartbeat += min((int)DATAGRAM_SIZE, (int)readResult);
+    double t       = get_time();
+    double elapsed = t - last_hearbeat;
+    if (elapsed > hearbeat_period) {
+        cout << "Reading packets at "
+             << bytes_read_since_last_heartbeat / (DATAGRAM_SIZE * elapsed)
+             << " Hz\n";
+        bytes_read_since_last_heartbeat = 0;
+        last_hearbeat                   = t;
     }
 
     return readResult;

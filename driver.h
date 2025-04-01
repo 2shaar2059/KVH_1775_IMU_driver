@@ -1,33 +1,27 @@
 
-#ifndef DRIVER_STIM300_DRIVER_STIM300_H
-#define DRIVER_STIM300_DRIVER_STIM300_H
+#ifndef _DRIVER_H_
+#define _DRIVER_H_
 
-extern "C" {
-#include "cfe.h"
-}
 #include "EigenWrapper.h"
 #include "datagram_parser.h"
 #include "serial_driver.h"
 
-class DriverStim300 {
+class Driver {
    public:
-    explicit DriverStim300(SerialDriver& serial_driver);
+    explicit Driver(SerialDriver &serial_driver);
 
     /** \brief Return the Accelerometers values
      */
-    Vector3 getAccData();
+    Vector3 getAccData() const;
 
     /** \brief Return the Gyroscopes values
      */
-    Vector3 getGyroData();
+    Vector3 getGyroData() const;
 
-    /** \brief Return the Inclinometers values
-     */
-    uint16_t getLatency_us() const;
     double getAverageTemp() const;
     std::string getDevicePath() const;
 
-    void setDevicePath(const char* newPath);
+    void setDevicePath(const char *newPath);
 
     bool isChecksumGood() const;
     bool isSensorStatusGood() const;
@@ -39,12 +33,13 @@ class DriverStim300 {
     void forceState(bool checksum_is_ok, bool no_internal_error);
 
    private:
-    SerialDriver& serial_driver_;
+    SerialDriver &serial_driver_;
     bool checksum_is_ok_;
     bool no_internal_error_;
-    stim300::SensorData sensor_data_;
+    SensorData sensor_data_;
 };
 
-uint32_t calculateChecksum(buffer_iterator_t& begin, buffer_iterator_t& end);
+uint32_t calculateChecksum(const buffer_iterator_t &begin,
+                           const buffer_iterator_t &end);
 
-#endif   // DRIVER_STIM300_DRIVER_STIM300_H
+#endif   // _DRIVER_H_

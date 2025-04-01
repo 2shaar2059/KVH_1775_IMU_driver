@@ -1,10 +1,5 @@
-#ifndef DRIVER_STIM300_SERIAL_UBUNTU_H
-#define DRIVER_STIM300_SERIAL_UBUNTU_H
-
-extern "C" {
-#include "cfe.h"
-#include "cfe_evs.h"
-}
+#ifndef SERIAL_UBUNTU_H
+#define SERIAL_UBUNTU_H
 
 #include <termios.h>
 
@@ -23,7 +18,7 @@ class SerialUnix : public SerialDriver {
     /**
      * @param: serial_port_name: device filepath (e.g. "/dev/ttyUSB0")
      */
-    explicit SerialUnix(const std::string& serial_port_name);
+    explicit SerialUnix(const std::string &serial_port_name);
     void open() override;
     ssize_t readBytes() override;
     void reconnect() override;
@@ -32,4 +27,4 @@ class SerialUnix : public SerialDriver {
     struct termios config_ {};
 };
 
-#endif   // DRIVER_STIM300_SERIAL_UBUNTU_H
+#endif   // SERIAL_UBUNTU_H
