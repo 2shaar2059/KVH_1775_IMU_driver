@@ -53,21 +53,27 @@ void IMUDriver::processIMUData() {
     }
 }
 
+static double time_of_first_log = 0;
 void IMUDriver::logIMUData() {
+    double t = get_time();
     if (first_time_logging_) {   // write header
         cout << "time [s]" << "," << "Valid Packet counter" << ","
              << "Gyro x [rad/s]" << "," << "Gyro y [rad/s]" << ","
              << "Gyro z [rad/s]" << "," << "Accel x [m/s^2]" << ","
              << "Accel y [m/s^2]" << "," << "Accel z [m/s^2]\n";
         first_time_logging_ = false;
+        time_of_first_log   = t;
     }
-    cout << fixed << setprecision(10);
-    cout << get_time() << "," << validPackets_ << ","   //
-         << angular_velocity_.x() << ","                //
-         << angular_velocity_.y() << ","                //
-         << angular_velocity_.z() << ","                //
-         << specific_force_.x() << ","                  //
-         << specific_force_.y() << ","                  //
+
+    cout << fixed << setprecision(5);
+    cout << t - time_of_first_log << ",";
+    cout << validPackets_ << ",";          //
+    cout << setprecision(10);              //
+    cout << angular_velocity_.x() << ","   //
+         << angular_velocity_.y() << ","   //
+         << angular_velocity_.z() << ","   //
+         << specific_force_.x() << ","     //
+         << specific_force_.y() << ","     //
          << specific_force_.z() << endl;
 }
 
