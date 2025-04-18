@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
-#include <eigen3/Eigen/Dense>
 #include <iomanip>
 #include <iostream>
 
@@ -67,14 +66,14 @@ void IMUDriver::logIMUData() {
 
     cout << fixed << setprecision(5);
     cout << t - time_of_first_log << ",";
-    cout << validPackets_ << ",";          //
-    cout << setprecision(10);              //
-    cout << angular_velocity_.x() << ","   //
-         << angular_velocity_.y() << ","   //
-         << angular_velocity_.z() << ","   //
-         << specific_force_.x() << ","     //
-         << specific_force_.y() << ","     //
-         << specific_force_.z() << endl;
+    cout << validPackets_ << ",";        //
+    cout << setprecision(10);            //
+    cout << angular_velocity_.x << ","   //
+         << angular_velocity_.y << ","   //
+         << angular_velocity_.z << ","   //
+         << specific_force_.x << ","     //
+         << specific_force_.y << ","     //
+         << specific_force_.z << endl;
 }
 
 // Defining the member functions for IMUDriver
@@ -87,7 +86,7 @@ int main() {
         double t       = get_time();
         double elapsed = t - last_hearbeat;
         if (elapsed > hearbeat_period) {
-            cout << setprecision(10) << t - start << endl;
+            // cout << setprecision(10) << "HEARTBEAT: " << t - start << endl;
             last_hearbeat = t;
         }
         imuDriver.processIMUData();

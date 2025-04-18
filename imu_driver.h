@@ -3,14 +3,13 @@
 
 #include <chrono>
 #include <cstring>
-#include <eigen3/Eigen/Dense>
+
+// for logging
+#include <fstream>
 
 #include "EigenWrapper.h"
 #include "driver.h"
 #include "serial_unix.h"
-
-// for logging
-#include <fstream>
 
 #define PATH "/dev/ttyUSB0"
 

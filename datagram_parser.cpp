@@ -34,13 +34,13 @@ static float parseSPFP(buffer_iterator_t& it) {
 }
 
 bool parseDatagram(buffer_iterator_t& it, SensorData& sensor_data) {
-    sensor_data.gyro.x() = parseSPFP(it);
-    sensor_data.gyro.y() = parseSPFP(it);
-    sensor_data.gyro.z() = parseSPFP(it);
+    sensor_data.gyro.x = parseSPFP(it);
+    sensor_data.gyro.y = parseSPFP(it);
+    sensor_data.gyro.z = parseSPFP(it);
 
-    sensor_data.accel.x() = ACC_SCALE * parseSPFP(it);
-    sensor_data.accel.y() = ACC_SCALE * parseSPFP(it);
-    sensor_data.accel.z() = ACC_SCALE * parseSPFP(it);
+    sensor_data.accel.x = ACC_SCALE * parseSPFP(it);
+    sensor_data.accel.y = ACC_SCALE * parseSPFP(it);
+    sensor_data.accel.z = ACC_SCALE * parseSPFP(it);
 
     // Temperature and magnetic data??
     (void)parseSPFP(it);

@@ -202,9 +202,9 @@ ssize_t SerialUnix::readBytes() {
     double t       = get_time();
     double elapsed = t - last_hearbeat;
     if (elapsed > hearbeat_period) {
-        cout << "Reading packets at "
-             << bytes_read_since_last_heartbeat / (DATAGRAM_SIZE * elapsed)
-             << " Hz\n";
+        // cout << "Reading packets at "
+        //      << bytes_read_since_last_heartbeat / (DATAGRAM_SIZE * elapsed)
+        //      << " Hz\n";
         bytes_read_since_last_heartbeat = 0;
         last_hearbeat                   = t;
     }
