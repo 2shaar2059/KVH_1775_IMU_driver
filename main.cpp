@@ -67,7 +67,7 @@ void IMUDriver::logIMUData() {
     cout << fixed << setprecision(5);
     cout << t - time_of_first_log << ",";
     cout << validPackets_ << ",";        //
-    cout << setprecision(10);            //
+    cout << setprecision(15);            //
     cout << angular_velocity_.x << ","   //
          << angular_velocity_.y << ","   //
          << angular_velocity_.z << ","   //
